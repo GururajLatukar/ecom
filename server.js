@@ -1,14 +1,13 @@
 const express = require('express')
 const app = express()
-const port = 3000
+const port = process.env.PORT || 3000;
 
-const db = require('./lib/db');
+const customer = require('./routes/customer');
 
-app.get('/', async (req, res) => {
-  const { rows } = await db.query('SELECT * FROM customer')
-  res.send(rows[0])
-})
+app.use(express.json());
+
+app.use("/api/customer", customer);
 
 app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`)
+  console.log(`server listening at ${port}`)
 })
