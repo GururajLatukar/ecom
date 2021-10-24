@@ -2,8 +2,11 @@ const express = require('express')
 const app = express()
 const port = 3000
 
-app.get('/', (req, res) => {
-  res.send('vendor api!')
+const db = require('./lib/db');
+
+app.get('/', async (req, res) => {
+  const { rows } = await db.query('SELECT * FROM customer')
+  res.send(rows[0])
 })
 
 app.listen(port, () => {
