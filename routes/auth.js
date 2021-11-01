@@ -21,10 +21,20 @@ async function generateRefreshToken(userId) {
   return token;
 }
 
+async function uniqueEmail(email, userType){
+  const { rows } = await db.query(`SELECT * FROM ${userType} where email=$1`, [
+    email,
+  ]);
+  if (rows.length>0) {
+    return true;
+  }
+  return false;
+}
+
 router.post("/login", async function (req, res) {
   try {
-    const { email, password } = req.body;
-    const { rows } = await db.query("SELECT * FROM customer where email=$1", [
+    const { email, password, userType } = req.body;
+    const { rows } = await db.query(`SELECT * FROM ${userType} where email=$1`, [
       email,
     ]);
 
@@ -49,6 +59,34 @@ router.post("/login", async function (req, res) {
     res.status(400).send(err);
   }
 });
+
+router.post("/register", async function (req, res) {
+  try {
+    const { userType, data } = req.body;
+    if(await uniqueEmail(data.email, userType)){
+      return res.status(400).send("Email is already exist");
+    } 
+    if(userType==='customer'){
+      const {name,email,password,contact_no, address} = data;
+      await db.query(`INSERT INTO ${userType}(name,password,email,contact_no,address) VALUES($1,$2,$3,$4,$5)`, [
+        name,password,email,contact_no,address
+      ]);
+
+      res.status(200).send("Registered!");
+    } else if(userType==='vendor'){
+      const {name,email,password,contact_no, shop_name,shop_location,aadhaar_no} = data;
+      await db.query(`INSERT INTO ${userType}(name,password,email,contact_no,shop_name,shop_location,aadhaar_no) VALUES($1,$2,$3,$4,$5,$6,$7)`, [
+        name,password,email,contact_no,shop_name,shop_location,aadhaar_no
+      ]);
+
+      res.status(200).send("Registered!");
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(400).send(err);
+  }
+});
+
 
 router.post("/refreshToken", async function (req, res) {
   try {
