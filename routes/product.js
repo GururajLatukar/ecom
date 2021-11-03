@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const db = require("../lib/db");
 
-router.post("/product/addProduct", async function (req, res) {
+router.post("/addProduct", async function (req, res) {
   try {
     const { data } = req.body;
     const {
@@ -33,7 +33,7 @@ router.post("/product/addProduct", async function (req, res) {
   }
 });
 
-router.post("/product/editProduct", async function (req, res) {
+router.post("/editProduct", async function (req, res) {
   try {
     const { data } = req.body;
     const {
@@ -74,7 +74,7 @@ router.get("/", async function (req, res) {
   }
 });
 
-router.get("/product/getById", async function (req, res) {
+router.get("/getById", async function (req, res) {
   try {
     const { rows } = await db.query("SELECT * FROM PRODUCT WHERE id= $1",[req.query.id]);
     res.status(200).send(rows[0]);
@@ -83,7 +83,7 @@ router.get("/product/getById", async function (req, res) {
   }
 });
 
-router.get("/product/deleteProduct", async function (req, res) {
+router.get("/deleteProduct", async function (req, res) {
     try {
       const { rows } = await db.query("DELETE FROM PRODUCT WHERE id= $1",[req.query.id]);
       res.status(200).send(rows[0]);
