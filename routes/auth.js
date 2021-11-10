@@ -7,25 +7,25 @@ async function generateRefreshToken(userId) {
   let expiredAt = new Date();
 
   expiredAt.setSeconds(
-    expiredAt.getSeconds() + process.env.JWTREFRESHEXPIRATION
+    expiredAt.getSeconds() + parseInt(process.env.JWTREFRESHEXPIRATION)
   );
 
   let token = uuidv4();
 
-  await db.query('INSERT INTO TOKEN("token","expiry_date","user_id") VALUES($1,$2,$3)', [
-    token,
-    expiredAt,
-    userId
-  ]);
+  await db.query("DELETE FROM TOKEN WHERE user_id=$1", [userId]);
+  await db.query(
+    'INSERT INTO TOKEN("token","expiry_date","user_id") VALUES($1,$2,$3)',
+    [token, expiredAt, userId]
+  );
 
   return token;
 }
 
-async function uniqueEmail(email, userType){
+async function uniqueEmail(email, userType) {
   const { rows } = await db.query(`SELECT * FROM ${userType} where email=$1`, [
     email,
   ]);
-  if (rows.length>0) {
+  if (rows.length > 0) {
     return true;
   }
   return false;
@@ -34,17 +34,22 @@ async function uniqueEmail(email, userType){
 router.post("/login", async function (req, res) {
   try {
     const { email, password, userType } = req.body;
-    const { rows } = await db.query(`SELECT * FROM ${userType} where email=$1`, [
-      email,
-    ]);
+    const { rows } = await db.query(
+      `SELECT * FROM ${userType} where email=$1`,
+      [email]
+    );
 
     if (rows[0].password !== password) {
       res.status(400).send("Invalid Password");
     }
-
-    const token = jwt.sign({ id: rows[0].id }, process.env.SECRET, {
-      expiresIn: process.env.JWTEXPIRATION,
-    });
+    const userId = `${userType}_id`;
+    const token = jwt.sign(
+      { id: rows[0][userId], userType },
+      process.env.SECRET,
+      {
+        expiresIn: parseInt(process.env.JWTEXPIRATION),
+      }
+    );
 
     let refreshToken = await generateRefreshToken(rows[0].customer_id);
 
@@ -63,21 +68,39 @@ router.post("/login", async function (req, res) {
 router.post("/register", async function (req, res) {
   try {
     const { userType, data } = req.body;
-    if(await uniqueEmail(data.email, userType)){
+    if (await uniqueEmail(data.email, userType)) {
       return res.status(400).send("Email is already exist");
-    } 
-    if(userType==='customer'){
-      const {name,email,password,contact_no, address} = data;
-      await db.query(`INSERT INTO ${userType}(name,password,email,contact_no,address) VALUES($1,$2,$3,$4,$5)`, [
-        name,password,email,contact_no,address
-      ]);
+    }
+    if (userType === "customer") {
+      const { name, email, password, contact_no, address } = data;
+      await db.query(
+        `INSERT INTO ${userType}(name,password,email,contact_no,address) VALUES($1,$2,$3,$4,$5)`,
+        [name, password, email, contact_no, address]
+      );
 
       res.status(200).send("Registered!");
-    } else if(userType==='vendor'){
-      const {name,email,password,contact_no, shop_name,shop_location,aadhaar_no} = data;
-      await db.query(`INSERT INTO ${userType}(name,password,email,contact_no,shop_name,shop_location,aadhaar_no) VALUES($1,$2,$3,$4,$5,$6,$7)`, [
-        name,password,email,contact_no,shop_name,shop_location,aadhaar_no
-      ]);
+    } else if (userType === "vendor") {
+      const {
+        name,
+        email,
+        password,
+        contact_no,
+        shop_name,
+        shop_location,
+        aadhaar_no,
+      } = data;
+      await db.query(
+        `INSERT INTO ${userType}(name,password,email,contact_no,shop_name,shop_location,aadhaar_no) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          name,
+          password,
+          email,
+          contact_no,
+          shop_name,
+          shop_location,
+          aadhaar_no,
+        ]
+      );
 
       res.status(200).send("Registered!");
     }
@@ -86,7 +109,6 @@ router.post("/register", async function (req, res) {
     res.status(400).send(err);
   }
 });
-
 
 router.post("/refreshToken", async function (req, res) {
   try {
@@ -100,19 +122,19 @@ router.post("/refreshToken", async function (req, res) {
     ]);
 
     if (!rows[0].token) {
-      return res
-        .status(400)
-        .send("Refresh token is not in database!");
+      return res.status(400).send("Refresh token is not in database!");
     }
 
     if (rows[0].expiry_date.getTime() < new Date().getTime()) {
       await db.query("Delete * FROM token where token=$1", [requestToken]);
 
-      return res.status(400).json("Refresh token was expired. Please make a new signin request");
+      return res
+        .status(400)
+        .json("Refresh token was expired. Please make a new signin request");
     }
 
     let newAccessToken = jwt.sign({ id: rows[0].userId }, process.env.SECRET, {
-      expiresIn: process.env.JWTEXPIRATION,
+      expiresIn: parseInt(process.env.JWTEXPIRATION),
     });
 
     return res.status(200).send({
