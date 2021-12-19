@@ -1,9 +1,9 @@
 const router = require("express").Router();
 const db = require("../lib/db");
+const verifyToken = require('../middleware/authMiddleware')
 
-router.post("/addProduct", async function (req, res) {
+router.post("/add", verifyToken, async function (req, res) {
   try {
-    const { data } = req.body;
     const {
       company_name,
       model_name,
@@ -11,8 +11,9 @@ router.post("/addProduct", async function (req, res) {
       price,
       discount,
       quantity,
-      vendor_id,
-    } = data;
+    } = req.body;
+
+    const vendor_id = req.userId;
 
     await db.query(
       `INSERT INTO product(company_name, model_name, model_specification, price, discount, quantity,vendor_id) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
@@ -33,21 +34,22 @@ router.post("/addProduct", async function (req, res) {
   }
 });
 
-router.post("/editProduct", async function (req, res) {
+router.post("/:id/edit", verifyToken, async function (req, res) {
   try {
-    const { data } = req.body;
+    let {id} = req.params;
+    id = parseInt(id);
+
     const {
       company_name,
       model_name,
       model_specification,
       price,
       discount,
-      quantity,
-      vendor_id,
-    } = data;
+      quantity
+    } = req.body;
 
     await db.query(
-      `UPDATE product SET company_name=$1, model_name=$2, model_specification=$3, price=$4, discount=$5, quantity=$6,vendor_id=$7`,
+      `UPDATE product SET company_name=$1, model_name=$2, model_specification=$3, price=$4, discount=$5, quantity=$6 WHERE product_id=$7`,
       [
         company_name,
         model_name,
@@ -55,10 +57,10 @@ router.post("/editProduct", async function (req, res) {
         price,
         discount,
         quantity,
-        vendor_id,
+        id
       ]
     );
-    res.status(200).send("Product updated ");
+    res.status(200).send("Product updated");
   } catch (err) {
     console.log(err);
     res.status(400).send(err);
@@ -68,25 +70,29 @@ router.post("/editProduct", async function (req, res) {
 router.get("/", async function (req, res) {
   try {
     const { rows } = await db.query("SELECT * FROM PRODUCT");
-    res.status(200).send(rows[0]);
+    res.status(200).send(rows);
   } catch (err) {
     res.status(400).send(err);
   }
 });
 
-router.get("/getById", async function (req, res) {
+router.get("/:id", async function (req, res) {
   try {
-    const { rows } = await db.query("SELECT * FROM PRODUCT WHERE id= $1",[req.query.id]);
-    res.status(200).send(rows[0]);
+    let {id} = req.params;
+    id = parseInt(id);
+    const { rows } = await db.query("SELECT * FROM PRODUCT WHERE product_id= $1",[id]);
+    res.status(200).send(rows);
   } catch (err) {
     res.status(400).send(err);
   }
 });
 
-router.get("/deleteProduct", async function (req, res) {
+router.delete("/:id", verifyToken, async function (req, res) {
+    let {id} = req.params;
+    id = parseInt(id);
     try {
-      const { rows } = await db.query("DELETE FROM PRODUCT WHERE id= $1",[req.query.id]);
-      res.status(200).send(rows[0]);
+      await db.query("DELETE FROM PRODUCT WHERE product_id= $1",[id]);
+      res.status(200).send("Product deleted");
     } catch (err) {
       res.status(400).send(err);
     }
